@@ -39,7 +39,7 @@ static int PendingEHCIPorts;
  * Root hub
  ****************************************************************/
 
-#define EHCI_TIME_POSTPOWER 20
+#define EHCI_TIME_POSTPOWER 100
 #define EHCI_TIME_POSTRESET 2
 
 // Check if device attached to port
