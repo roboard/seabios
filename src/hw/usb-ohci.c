@@ -103,6 +103,7 @@ check_ohci_ports(struct usb_ohci_s *cntl)
     // Turn on power for all devices on roothub.
     u32 rha = readl(&cntl->regs->roothub_a);
     rha &= ~(RH_A_PSM | RH_A_OCPM);
+    writel(&cntl->regs->roothub_b, 0x0);  // Clear PPCM before turn on power.
     writel(&cntl->regs->roothub_status, RH_HS_LPSC);
     writel(&cntl->regs->roothub_b, RH_B_PPCM);
     msleep((rha >> 24) * 2);
