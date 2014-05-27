@@ -54,17 +54,18 @@ ehci_hub_detect(struct usbhub_s *hub, u32 port)
     if (!(portsc & PORT_POWER)) {
         portsc |= PORT_POWER;
         writel(portreg, portsc);
-        msleep(EHCI_TIME_POSTPOWER);
-    } else {
-        // Port is already powered up, but we don't know how long it
-        // has been powered up, so wait the 20ms.
-        msleep(EHCI_TIME_POSTPOWER);
     }
-    portsc = readl(portreg);
 
-    if (!(portsc & PORT_CONNECT))
-        // No device present
-        goto doneearly;
+    u32 end = timer_calc(EHCI_TIME_POSTPOWER);
+    for (;;) {
+        portsc = readl(portreg);
+        if (portsc & PORT_CONNECT)
+            break;
+        if (timer_check(end))
+            // No device present
+            goto doneearly;
+        yield();
+    }
 
     if ((portsc & PORT_LINESTATUS_MASK) == PORT_LINESTATUS_KSTATE) {
         // low speed device
