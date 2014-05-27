@@ -42,6 +42,17 @@ static int PendingEHCIPorts;
 #define EHCI_TIME_POSTPOWER 100
 #define EHCI_TIME_POSTRESET 2
 
+#define EHCI_TIME_POSTCPUPOWER 800
+
+// Return timer value that is 'msecs' time after CPU power-on.
+// Based on timer_calc in timer.c
+static u32
+timer_calc_from_cpu_power_on(u32 msecs)
+{
+    extern u32 TimerKHz;
+    return (GET_GLOBAL(TimerKHz) * msecs);
+}
+
 // Check if device attached to port
 static int
 ehci_hub_detect(struct usbhub_s *hub, u32 port)
@@ -57,6 +68,11 @@ ehci_hub_detect(struct usbhub_s *hub, u32 port)
     }
 
     u32 end = timer_calc(EHCI_TIME_POSTPOWER);
+
+    u32 timer_from_cpu_power_on = timer_calc_from_cpu_power_on(EHCI_TIME_POSTCPUPOWER);
+    if (end < timer_from_cpu_power_on)
+        end = timer_from_cpu_power_on;
+
     for (;;) {
         portsc = readl(portreg);
         if (portsc & PORT_CONNECT)
