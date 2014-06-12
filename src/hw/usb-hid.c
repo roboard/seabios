@@ -170,6 +170,45 @@ struct keyevent {
     u8 keys[6];
 };
 
+// Push key data into 8042
+#define I8042_CTL_TIMEOUT       10000
+static int
+usb_i8042_wait_write(void)
+{
+    // copied from ps2port.c : i8042_wait_write.
+
+    //dprintf(7, "usb_i8042_wait_write\n");
+    int i;
+    for (i=0; i<I8042_CTL_TIMEOUT; i++) {
+        u8 status = inb(PORT_PS2_STATUS);
+        if (! (status & I8042_STR_IBF))
+            return 0;
+        //udelay(50);
+    }
+    //warn_timeout();
+    return -1;
+}
+
+static int
+push_8042_keydata(u8 key)
+{
+    // copied from ps2port.c : __i8042_command.
+
+    // Send the command.
+    int ret = usb_i8042_wait_write();
+    if (ret)
+        return ret;
+    outb(0xd2, PORT_PS2_STATUS);  // D2 = Write keyboard output buffer.
+
+    // Send data.
+    ret = usb_i8042_wait_write();
+    if (ret)
+      return ret;
+    outb(key, PORT_PS2_DATA);
+
+    return 0;
+}
+
 // Translate data from KeyToScanCode[] to calls to process_key().
 static void
 prockeys(u16 keys)
@@ -178,14 +217,19 @@ prockeys(u16 keys)
         u8 key = keys>>8;
         if (key == 0xe1) {
             // Pause key
-            process_key(0xe1);
-            process_key(0x1d | (keys & RELEASEBIT));
-            process_key(0x45 | (keys & RELEASEBIT));
+            //process_key(0xe1);
+            push_8042_keydata(0xe1);
+            //process_key(0x1d | (keys & RELEASEBIT));
+            push_8042_keydata(0x1d | (keys & RELEASEBIT));
+            //process_key(0x45 | (keys & RELEASEBIT));
+            push_8042_keydata(0x45 | (keys & RELEASEBIT));
             return;
         }
-        process_key(key);
+        //process_key(key);
+        push_8042_keydata(key);
     }
-    process_key(keys);
+    //process_key(keys);
+    push_8042_keydata(keys);
 }
 
 // Handle a USB key press/release event.
@@ -299,6 +343,11 @@ usb_check_key(void)
         return;
 
     for (;;) {
+        // If 8042 IBF or OBF is full, we can't push key data into 8042,
+        // so we will skip USB keyboard data this time.
+        u8 v = inb(PORT_PS2_STATUS);
+        if (v & (I8042_STR_IBF | I8042_STR_OBF))
+            break;
         struct keyevent data;
         int ret = usb_poll_intr(pipe, &data);
         if (ret)
