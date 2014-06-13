@@ -192,6 +192,28 @@ usb_i8042_wait_write(void)
 static int
 push_8042_keydata(u8 key)
 {
+    // If 8042 IBF or OBF is full, we can't push key data into 8042,
+    // so we will skip USB keyboard data this time.
+    int i = 0;
+    while (1)
+    {
+        u8 v = inb(PORT_PS2_STATUS);
+        if (v & (I8042_STR_IBF | I8042_STR_OBF))
+        {
+            yield();
+            i ++;
+            if (i > 0x30)
+            {
+                // 8042 timeout, give up this key data.
+                return 1;
+            }
+        }
+        else
+        {
+            break;
+        }
+    }
+
     // copied from ps2port.c : __i8042_command.
 
     // Send the command.
@@ -205,6 +227,9 @@ push_8042_keydata(u8 key)
     if (ret)
       return ret;
     outb(key, PORT_PS2_DATA);
+
+    // allow keyobard IRQ1 to run.
+    yield();
 
     return 0;
 }
@@ -343,11 +368,6 @@ usb_check_key(void)
         return;
 
     for (;;) {
-        // If 8042 IBF or OBF is full, we can't push key data into 8042,
-        // so we will skip USB keyboard data this time.
-        u8 v = inb(PORT_PS2_STATUS);
-        if (v & (I8042_STR_IBF | I8042_STR_OBF))
-            break;
         struct keyevent data;
         int ret = usb_poll_intr(pipe, &data);
         if (ret)

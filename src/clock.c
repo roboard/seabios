@@ -265,6 +265,7 @@ handle_1a(struct bregs *regs)
 }
 
 // INT 08h System Timer ISR Entry Point
+u8 int1c_reentry VARLOW = 0;
 void VISIBLE16
 handle_08(void)
 {
@@ -283,15 +284,26 @@ handle_08(void)
 
     // Check for internal events.
     floppy_tick();
-    usb_check_event();
-
-    // chain to user timer tick INT #0x1c
-    struct bregs br;
-    memset(&br, 0, sizeof(br));
-    br.flags = F_IF;
-    call16_int(0x1c, &br);
+    //usb_check_event();
 
     pic_eoi1();
+
+    // chain to user timer tick INT #0x1c
+    if (!GET_LOW(int1c_reentry))
+    {
+        SET_LOW(int1c_reentry, 1);
+        //irq_enable();
+        yield();
+        usb_check_event();
+        yield();
+        struct bregs br;
+        memset(&br, 0, sizeof(br));
+        br.flags = F_IF;
+        call16_int(0x1c, &br);
+        SET_LOW(int1c_reentry, 0);
+    }
+
+    //pic_eoi1();
 }
 
 
