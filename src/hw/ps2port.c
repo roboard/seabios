@@ -419,6 +419,7 @@ done:
  * Setup
  ****************************************************************/
 
+int has_ps2_keyboard = 0;
 static void
 ps2_keyboard_setup(void *data)
 {
@@ -469,6 +470,7 @@ ps2_keyboard_setup(void *data)
         dprintf(1, "keyboard self test failed (got %x not 0xaa)\n", param[0]);
         return;
     }
+    has_ps2_keyboard = 1;
 
     /* Disable keyboard */
     ret = ps2_kbd_command(ATKBD_CMD_RESET_DIS, NULL);
@@ -490,6 +492,16 @@ ps2_keyboard_setup(void *data)
         return;
 
     dprintf(1, "PS2 keyboard initialized\n");
+}
+
+void
+force_init_8042_for_usb_kbd(void)
+{
+    // Keyboard Mode: disable mouse, scan code convert, enable kbd IRQ
+    SET_LOW(Ps2ctr, I8042_CTR_AUXDIS | I8042_CTR_XLATE | I8042_CTR_KBDINT);
+
+    u8 ps2ctr = GET_LOW(Ps2ctr);
+    i8042_command(I8042_CMD_CTL_WCTR, &ps2ctr);
 }
 
 void

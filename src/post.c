@@ -21,6 +21,7 @@
 #include "hw/rtc.h" // rtc_write
 #include "hw/serialio.h" // serial_debug_preinit
 #include "hw/usb.h" // usb_setup
+#include "hw/usb-hid.h" // usb_kbd_active
 #include "hw/virtio-blk.h" // virtio_blk_setup
 #include "hw/virtio-scsi.h" // virtio_scsi_setup
 #include "malloc.h" // malloc_init
@@ -205,6 +206,20 @@ startBoot(void)
     call16_int(0x19, &br);
 }
 
+// Init 8042 controller if PS/2 keyboard is not present and USB keyboard is present.
+extern int has_ps2_keyboard;
+extern void force_init_8042_for_usb_kbd(void);
+static void
+init_8042_if_usb_kbd(void)
+{
+    wait_threads();
+    if ((!has_ps2_keyboard) && usb_kbd_active())
+    {
+        dprintf(1, "USB keyboard only, force init 8042 controller.\n");
+        force_init_8042_for_usb_kbd();
+    }
+}
+
 // Main setup code.
 static void
 maininit(void)
@@ -230,6 +245,8 @@ maininit(void)
 
     // Run option roms
     optionrom_setup();
+
+    init_8042_if_usb_kbd();
 
     // Allow user to modify overall boot order.
     interactive_bootmenu();
