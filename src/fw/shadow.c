@@ -104,14 +104,32 @@ make_bios_readonly_intel(u16 bdf, u32 pam0)
     pci_config_writeb(bdf, pam0, 0x10);
 }
 
+static void
+make_bios_writable_rdc(u16 bdf)
+{
+    // Make the 0xc0000-0xfffff area read/writable
+    pci_config_writel(bdf, 0x84, 0x3ffffff0);
+}
+
+static void
+make_bios_readonly_rdc(u16 bdf)
+{
+    // Flush any pending writes before locking memory.
+    wbinvd();
+
+    // Make the 0xc0000-0xeffff area read/writable, the BIOS code
+    // segment area (0xf0000) read-only
+    pci_config_writel(bdf, 0x84, 0x1ffffff0);
+}
+
 static int ShadowBDF = -1;
 
 // Make the 0xc0000-0x100000 area read/writable.
 void
 make_bios_writable(void)
 {
-    if (!CONFIG_QEMU || runningOnXen())
-        return;
+    //if (!CONFIG_QEMU || runningOnXen())
+    //    return;
 
     dprintf(3, "enabling shadow ram\n");
 
@@ -133,6 +151,12 @@ make_bios_writable(void)
             ShadowBDF = bdf;
             return;
         }
+        if (vendor == PCI_VENDOR_ID_RDC
+            && device == 0x6025) {
+            make_bios_writable_rdc(bdf);
+            ShadowBDF = bdf;
+            return;
+        }
     }
     dprintf(1, "Unable to unlock ram - bridge not found\n");
 }
@@ -141,8 +165,8 @@ make_bios_writable(void)
 void
 make_bios_readonly(void)
 {
-    if (!CONFIG_QEMU || runningOnXen())
-        return;
+    //if (!CONFIG_QEMU || runningOnXen())
+    //    return;
     dprintf(3, "locking shadow ram\n");
 
     if (ShadowBDF < 0) {
@@ -150,11 +174,18 @@ make_bios_readonly(void)
         return;
     }
 
-    u16 device = pci_config_readw(ShadowBDF, PCI_DEVICE_ID);
-    if (device == PCI_DEVICE_ID_INTEL_82441)
-        make_bios_readonly_intel(ShadowBDF, I440FX_PAM0);
-    else
-        make_bios_readonly_intel(ShadowBDF, Q35_HOST_BRIDGE_PAM0);
+    u32 vendev = pci_config_readl(ShadowBDF, PCI_VENDOR_ID);
+    u16 vendor = vendev & 0xffff, device = vendev >> 16;
+    if (vendor == PCI_VENDOR_ID_INTEL) {
+        if (device == PCI_DEVICE_ID_INTEL_82441)
+            make_bios_readonly_intel(ShadowBDF, I440FX_PAM0);
+        else
+            make_bios_readonly_intel(ShadowBDF, Q35_HOST_BRIDGE_PAM0);
+    }
+    else if (vendor == PCI_VENDOR_ID_RDC) {
+        if (device == 0x6025)
+            make_bios_readonly_rdc(ShadowBDF);
+    }
 }
 
 void
