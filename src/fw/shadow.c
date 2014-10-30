@@ -117,9 +117,36 @@ make_bios_readonly_rdc(u16 bdf)
     // Flush any pending writes before locking memory.
     wbinvd();
 
-    // Make the 0xc0000-0xeffff area read/writable, the BIOS code
-    // segment area (0xf0000) read-only
-    pci_config_writel(bdf, 0x84, 0x1ffffff0);
+    // get new shadow RAM setting.
+    // option ROM area is read only.
+    // between option ROM and rom_get_max() is mapped to PCI.
+    // after rom_get_max() is writable.
+    u32 srr = 0;
+    u32 addr;
+    int bs;
+    u32 romlast = rom_get_last();
+    u32 rommax = rom_get_max();
+    for (addr = 0xc0000, bs = 4; addr <= 0xec000; addr += 0x4000, bs += 2)
+    {
+        if (addr < romlast)
+        {
+            // in option ROM area.
+            srr |= (1 << bs);  // read-only.
+        }
+        else if (addr + 0x4000 > rommax)
+        {
+            // rom_get_max and after is in this area.
+            srr |= (3 << bs);  // writable.
+        }
+        else
+        {
+            // between option ROM and rom_get_max().
+            srr |= (0 << bs);  // mapped to PCI.
+        }
+    }
+    // set 0xf0000~0xfffff (BIOS code segment) to read-only.
+    srr |= 0x10000000;
+    pci_config_writel(bdf, 0x84, srr);
 }
 
 static int ShadowBDF = -1;
