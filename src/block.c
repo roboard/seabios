@@ -515,6 +515,9 @@ process_op(struct disk_op_s *op)
     case DTYPE_RAMDISK:
         ret = process_ramdisk_op(op);
         break;
+    case DTYPE_SPIDISK:
+	ret = process_spifloppy_op(op);
+	break;
     case DTYPE_CDEMU:
         ret = process_cdemu_op(op);
         break;

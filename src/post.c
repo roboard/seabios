@@ -146,6 +146,7 @@ device_hardware_setup(void)
     ahci_setup();
     cbfs_payload_setup();
     ramdisk_setup();
+    spi_floppy_setup();
     virtio_blk_setup();
     virtio_scsi_setup();
     lsi_scsi_setup();

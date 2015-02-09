@@ -135,6 +135,12 @@ int bootprio_find_pci_device(struct pci_device *pci)
     return find_prio(desc);
 }
 
+int bootprio_find_spidisk(void)
+{
+    if (!CONFIG_BOOTORDER) return -1;
+    return find_prio("/spidisk");
+}
+
 int bootprio_find_scsi_device(struct pci_device *pci, int target, int lun)
 {
     if (!CONFIG_BOOTORDER)

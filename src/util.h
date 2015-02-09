@@ -34,6 +34,7 @@ int bootprio_find_ata_device(struct pci_device *pci, int chanid, int slave);
 int bootprio_find_fdc_device(struct pci_device *pci, int port, int fdid);
 int bootprio_find_pci_rom(struct pci_device *pci, int instance);
 int bootprio_find_named_rom(const char *name, int instance);
+int bootprio_find_spidisk(void);
 struct usbdevice_s;
 int bootprio_find_usb(struct usbdevice_s *usbdev, int lun);
 
@@ -145,6 +146,10 @@ void floppy_tick(void);
 // hw/ramdisk.c
 void ramdisk_setup(void);
 int process_ramdisk_op(struct disk_op_s *op);
+
+// hw/spi-floppy.c
+void spi_floppy_setup(void);
+int process_spifloppy_op(struct disk_op_s *op);
 
 // hw/timer.c
 void timer_setup(void);
